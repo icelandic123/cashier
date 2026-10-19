@@ -32,16 +32,16 @@ cashier:Start()
 local player = mock:AddPlayer(101)
 
 -- A normal purchase.
-assert(mock:BuyProduct(player, 1) == "Processed")
+assert(mock:BuyProduct(player, 1) == "Processed", "purchase should be processed")
 
 -- Roblox delivers the same receipt again: nothing is granted twice.
 local _, receipt = mock:BuyProduct(player, 1)
-assert(mock:Redeliver(receipt) == "Processed")
-assert(profile.Data.Coins == 200)
+assert(mock:Redeliver(receipt) == "Processed", "redelivery should be acknowledged")
+assert(profile.Data.Coins == 200, "redelivery must not grant twice")
 
 -- The server dies before saving: the next server grants it, once.
 profile.failSaves = true
-assert(mock:BuyProduct(player, 1) == "NotProcessedYet")
+assert(mock:BuyProduct(player, 1) == "NotProcessedYet", "unsaved purchase must not be acknowledged")
 mock:RestartServer()
 local nextProfile = CashierMock.Profile(profile.LastSavedData)
 local nextServer = Cashier.new({
@@ -58,7 +58,7 @@ nextServer:Product(1, function()
 end)
 nextServer:Start()
 mock:AddPlayer(101)
-assert(mock:RedeliverPending() == 1)
-assert(nextProfile.Data.Coins == 300)
+assert(mock:RedeliverPending() == 1, "next server should process the pending receipt")
+assert(nextProfile.Data.Coins == 300, "next server should grant exactly once")
 
 print("Cashier purchase tests passed")

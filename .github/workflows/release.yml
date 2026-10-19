@@ -15,7 +15,7 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       WALLY_AUTH: ${{ secrets.WALLY_AUTH }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rokit and tools
         run: |
