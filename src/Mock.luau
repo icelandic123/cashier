@@ -66,7 +66,7 @@ end
 -- Fires handlers synchronously, each in its own thread, so a test sees
 -- their effects as soon as they stop yielding.
 function MockSignal.Fire(self: any, ...)
-	for _, handler in table.clone(self._handlers) do
+	for _, handler: any in table.clone(self._handlers) do
 		if handler.connected then
 			task.spawn(handler.fn, ...)
 		end

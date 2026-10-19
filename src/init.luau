@@ -173,7 +173,7 @@ function Signal.Once(self: any, fn)
 end
 
 function Signal.Fire(self: any, ...)
-	for _, handler in table.clone(self._handlers) do
+	for _, handler: any in table.clone(self._handlers) do
 		if handler.connected then
 			task.spawn(handler.fn, ...)
 		end
