@@ -146,7 +146,7 @@ function Signal.new<T...>(): Signal<T...>
 	return (setmetatable({ _handlers = {} }, Signal) :: any) :: Signal<T...>
 end
 
-function Signal:Connect(fn)
+function Signal.Connect(self: any, fn)
 	local handler = { fn = fn, connected = true }
 	table.insert(self._handlers, handler)
 	local signal = self
@@ -163,7 +163,7 @@ function Signal:Connect(fn)
 	}
 end
 
-function Signal:Once(fn)
+function Signal.Once(self: any, fn)
 	local connection
 	connection = self:Connect(function(...)
 		connection:Disconnect()
@@ -172,7 +172,7 @@ function Signal:Once(fn)
 	return connection
 end
 
-function Signal:Fire(...)
+function Signal.Fire(self: any, ...)
 	for _, handler in table.clone(self._handlers) do
 		if handler.connected then
 			task.spawn(handler.fn, ...)
@@ -180,7 +180,7 @@ function Signal:Fire(...)
 	end
 end
 
-function Signal:DisconnectAll()
+function Signal.DisconnectAll(self: any)
 	for _, handler in self._handlers do
 		handler.connected = false
 	end
@@ -287,7 +287,7 @@ local function ProfileLedger(options: ProfileLedgerOptions): Ledger
 		return profile
 	end
 
-	function ledger.Check(_self, player: Player, key: string): LedgerState
+	function ledger.Check(_self: any, player: Player, key: string): LedgerState
 		local profile = profileFor(player)
 		if not profile then
 			return "unavailable"
@@ -295,7 +295,7 @@ local function ProfileLedger(options: ProfileLedgerOptions): Ledger
 		return if listHas(profile.Data[field], key) then "granted" else "new"
 	end
 
-	function ledger.Record(_self, player: Player, key: string)
+	function ledger.Record(_self: any, player: Player, key: string)
 		local profile = profileFor(player)
 		assert(profile, "profile disappeared between Check and Record")
 		local list = profile.Data[field]
@@ -311,7 +311,7 @@ local function ProfileLedger(options: ProfileLedgerOptions): Ledger
 		end
 	end
 
-	function ledger.Commit(_self, player: Player, key: string): boolean
+	function ledger.Commit(_self: any, player: Player, key: string): boolean
 		local profile = profileFor(player)
 		if not profile then
 			return false
@@ -388,7 +388,7 @@ local function DataStoreLedger(options: DataStoreLedgerOptions?): Ledger
 
 	local ledger = {}
 
-	function ledger.Check(_self, _player: Player, key: string): LedgerState
+	function ledger.Check(_self: any, _player: Player, key: string): LedgerState
 		if granted[key] ~= nil then
 			return "granted"
 		end
@@ -405,13 +405,13 @@ local function DataStoreLedger(options: DataStoreLedgerOptions?): Ledger
 		return "new"
 	end
 
-	function ledger.Record(_self, _player: Player, key: string)
+	function ledger.Record(_self: any, _player: Player, key: string)
 		-- Remember in memory right away so this server never grants twice,
 		-- even if the DataStore write below fails and the receipt comes back.
 		granted[key] = false
 	end
 
-	function ledger.Commit(_self, player: Player, key: string): boolean
+	function ledger.Commit(_self: any, player: Player, key: string): boolean
 		if granted[key] == true then
 			return true
 		end
@@ -440,13 +440,13 @@ end
 local function MemoryLedger(): Ledger
 	local granted: { [string]: boolean } = {}
 	local ledger = { _memory = true }
-	function ledger.Check(_self, _player: Player, key: string): LedgerState
+	function ledger.Check(_self: any, _player: Player, key: string): LedgerState
 		return if granted[key] then "granted" else "new"
 	end
-	function ledger.Record(_self, _player: Player, key: string)
+	function ledger.Record(_self: any, _player: Player, key: string)
 		granted[key] = true
 	end
-	function ledger.Commit(_self, _player: Player, _key: string): boolean
+	function ledger.Commit(_self: any, _player: Player, _key: string): boolean
 		return true
 	end
 	return ledger
@@ -491,7 +491,7 @@ export type Cashier = typeof(setmetatable(
 		_characterConnections: { [Player]: { Connection } },
 		_inflight: { [string]: boolean },
 		_connections: { Connection },
-		_receiptConnections: { [string]: Connection },
+		_receiptConnections: { [string]: Connection? },
 		_usingProcessReceipt: boolean,
 		_started: boolean,
 		_destroyed: boolean,
@@ -505,7 +505,7 @@ export type Cashier = typeof(setmetatable(
 ]=]
 function Cashier.new(options: Options?): Cashier
 	local opts: Options = options or {}
-	local services = opts.services or {}
+	local services: { [string]: any } = opts.services or {}
 	local self = setmetatable({
 		Granted = Signal.new(),
 		Failed = Signal.new(),
@@ -713,7 +713,7 @@ function Cashier._process(self: Cashier, kind: string, receipt: Receipt, handler
 		end
 		-- Still the same server frame as the grant: nothing can save the grant
 		-- without the record.
-		local okRecord, recordError = pcall(ledger.Record, ledger, player, key)
+		local okRecord, recordError = pcall(ledger.Record :: any, ledger, player, key)
 		if not okRecord then
 			self:_log("error", `{key}: granted but could not record: {recordError}`)
 		end
@@ -774,8 +774,9 @@ function Cashier._bindProductReceipts(self: Cashier)
 	local marketplace = self:_service("MarketplaceService")
 	local enums = self._enums
 
-	if self._receiptConnections.product then
-		self._receiptConnections.product:Disconnect()
+	local existing = self._receiptConnections.product
+	if existing then
+		existing:Disconnect()
 		self._receiptConnections.product = nil
 	end
 
@@ -861,7 +862,7 @@ function Cashier._grantPass(self: Cashier, player: Player, passId: number)
 		return
 	end
 	self.PassOwned:Fire(player, passId)
-	local ok, err = pcall(pass.handler, player, nil)
+	local ok, err = pcall(pass.handler :: any, player, nil)
 	if not ok then
 		self:_log("error", `pass {passId} handler errored for {playerName(player)}: {err}`)
 	end
@@ -869,7 +870,7 @@ function Cashier._grantPass(self: Cashier, player: Player, passId: number)
 		local characterAdded = (player :: any).CharacterAdded
 		if characterAdded then
 			local connection = characterAdded:Connect(function(character)
-				local okCharacter, errCharacter = pcall(pass.handler, player, character)
+				local okCharacter, errCharacter = pcall(pass.handler :: any, player, character)
 				if not okCharacter then
 					self:_log("error", `pass {passId} handler errored on respawn: {errCharacter}`)
 				end
@@ -881,7 +882,7 @@ function Cashier._grantPass(self: Cashier, player: Player, passId: number)
 		end
 		local character = (player :: any).Character
 		if character then
-			local okCharacter, errCharacter = pcall(pass.handler, player, character)
+			local okCharacter, errCharacter = pcall(pass.handler :: any, player, character)
 			if not okCharacter then
 				self:_log("error", `pass {passId} handler errored for current character: {errCharacter}`)
 			end
@@ -1027,7 +1028,8 @@ function Cashier._onPlayerAdded(self: Cashier, player: Player)
 end
 
 function Cashier._onPlayerRemoving(self: Cashier, player: Player)
-	for _, connection in self._characterConnections[player] or {} do
+	local connections: { Connection } = self._characterConnections[player] or {}
+	for _, connection in connections do
 		connection:Disconnect()
 	end
 	self._characterConnections[player] = nil
@@ -1119,7 +1121,7 @@ function Cashier.Destroy(self: Cashier)
 		connection:Disconnect()
 	end
 	for _, connection in self._receiptConnections do
-		connection:Disconnect()
+		(connection :: Connection):Disconnect()
 	end
 	for player in self._characterConnections do
 		self:_onPlayerRemoving(player)

@@ -46,7 +46,7 @@ function MockSignal.new()
 	return setmetatable({ _handlers = {} }, MockSignal)
 end
 
-function MockSignal:Connect(fn)
+function MockSignal.Connect(self: any, fn)
 	local handler = { fn = fn, connected = true }
 	table.insert(self._handlers, handler)
 	local signal = self
@@ -65,7 +65,7 @@ end
 
 -- Fires handlers synchronously, each in its own thread, so a test sees
 -- their effects as soon as they stop yielding.
-function MockSignal:Fire(...)
+function MockSignal.Fire(self: any, ...)
 	for _, handler in table.clone(self._handlers) do
 		if handler.connected then
 			task.spawn(handler.fn, ...)
@@ -145,7 +145,7 @@ export type PendingReceipt = {
 	`RunService:IsStudio()` returns (default true).
 ]=]
 function CashierMock.new(options: { studio: boolean?, bindReceiptHandler: boolean? }?)
-	local opts = options or {}
+	local opts: { studio: boolean?, bindReceiptHandler: boolean? } = options or {}
 	local self = setmetatable({}, CashierMock)
 	self.Enum = Enum
 	self._players = {} :: { MockPlayer }
@@ -170,7 +170,7 @@ function CashierMock.new(options: { studio: boolean?, bindReceiptHandler: boolea
 	function Players.GetPlayers(_self)
 		return table.clone(mock._players)
 	end
-	function Players.GetPlayerByUserId(_self, userId: number)
+	function Players.GetPlayerByUserId(_self, userId: number): MockPlayer?
 		for _, player in mock._players do
 			if player.UserId == userId then
 				return player
@@ -308,11 +308,11 @@ end
 	`UserOwnsGamePassAsync`, `GetUserSubscriptionStatusAsync`,
 	`PromptRobuxTransferAsync`, `GetAsync`, `SetAsync` and `UpdateAsync`.
 ]=]
-function CashierMock:FailNext(method: string, count: number?, message: string?)
+function CashierMock.FailNext(self: any, method: string, count: number?, message: string?)
 	self._failures[method] = { count = count or 1, message = message or `{method} failed (mock)` }
 end
 
-function CashierMock:_maybeFail(method: string)
+function CashierMock._maybeFail(self: any, method: string)
 	local failure = self._failures[method]
 	if failure and failure.count > 0 then
 		failure.count -= 1
@@ -327,7 +327,7 @@ end
 --[=[
 	Adds a fake player and fires `PlayerAdded`.
 ]=]
-function CashierMock:AddPlayer(userId: number, name: string?): MockPlayer
+function CashierMock.AddPlayer(self: any, userId: number, name: string?): MockPlayer
 	local player: MockPlayer = {
 		UserId = userId,
 		Name = name or `Player{userId}`,
@@ -343,7 +343,7 @@ end
 --[=[
 	Fires `PlayerRemoving` and removes the player.
 ]=]
-function CashierMock:RemovePlayer(player: MockPlayer)
+function CashierMock.RemovePlayer(self: any, player: MockPlayer)
 	self.Players.PlayerRemoving:Fire(player)
 	local index = table.find(self._players, player)
 	if index then
@@ -355,7 +355,7 @@ end
 --[=[
 	Spawns a fake character for the player and fires `CharacterAdded`.
 ]=]
-function CashierMock:SpawnCharacter(player: MockPlayer)
+function CashierMock.SpawnCharacter(self: any, player: MockPlayer)
 	local character = { Name = player.Name, Parent = player }
 	player.Character = character
 	player.CharacterAdded:Fire(character)
@@ -366,7 +366,7 @@ end
 -- Receipts
 --------------------------------------------------------------------------------
 
-function CashierMock:_handlerFor(receiptType: any, productId: number?): (any, string)
+function CashierMock._handlerFor(self: any, receiptType: any, productId: number?): (any, string)
 	local slot = self._bound[receiptType]
 	if slot then
 		if productId ~= nil and slot.filtered[productId] then
@@ -384,7 +384,7 @@ end
 
 -- Delivers one pending receipt like Roblox does. Returns the decision name:
 -- "Processed", "NotProcessedYet", "NoHandler" or "PlayerNotInServer".
-function CashierMock:_deliver(pending: PendingReceipt): string
+function CashierMock._deliver(self: any, pending: PendingReceipt): string
 	local receipt = pending.receipt
 	if not self.Players:GetPlayerByUserId(receipt.PlayerId) then
 		return "PlayerNotInServer"
@@ -397,8 +397,8 @@ function CashierMock:_deliver(pending: PendingReceipt): string
 	local ok, decision = pcall(handler, deepCopy(receipt))
 	local processed = ok
 		and (
-			(route == "bound" and decision == Enum.ReceiptDecision.Processed)
-			or (route == "processReceipt" and decision == Enum.ProductPurchaseDecision.PurchaseGranted)
+			(route == "bound" and decision == (Enum.ReceiptDecision.Processed :: any))
+			or (route == "processReceipt" and decision == (Enum.ProductPurchaseDecision.PurchaseGranted :: any))
 		)
 	if processed then
 		local index = table.find(self._pending, pending)
@@ -417,7 +417,8 @@ end
 	"PlayerNotInServer". Unprocessed receipts stay pending, like on Roblox,
 	until `RedeliverPending` processes them.
 ]=]
-function CashierMock:BuyProduct(
+function CashierMock.BuyProduct(
+	self: any,
 	player: MockPlayer | number,
 	productId: number,
 	price: number?
@@ -444,7 +445,7 @@ end
 	player rejoins. Pass a receipt returned by `BuyProduct`; the receipt does
 	not need to be pending (Roblox can deliver a receipt twice).
 ]=]
-function CashierMock:Redeliver(receipt: { [string]: any }): string
+function CashierMock.Redeliver(self: any, receipt: { [string]: any }): string
 	for _, pending in self._pending do
 		if pending.receipt.PurchaseId == receipt.PurchaseId then
 			return self:_deliver(pending)
@@ -460,7 +461,7 @@ end
 	Retries every pending receipt whose player is in the server. Returns how
 	many were processed.
 ]=]
-function CashierMock:RedeliverPending(): number
+function CashierMock.RedeliverPending(self: any): number
 	local processed = 0
 	for _, pending in table.clone(self._pending) do
 		if self:_deliver(pending) == "Processed" then
@@ -473,7 +474,7 @@ end
 --[=[
 	The receipts that have not been processed yet.
 ]=]
-function CashierMock:PendingReceipts(): { { [string]: any } }
+function CashierMock.PendingReceipts(self: any): { { [string]: any } }
 	local list = {}
 	for _, pending in self._pending do
 		table.insert(list, pending.receipt)
@@ -486,7 +487,7 @@ end
 	pending receipts, pass ownership and DataStores. Build a new Cashier on
 	the same mock afterwards.
 ]=]
-function CashierMock:RestartServer()
+function CashierMock.RestartServer(self: any)
 	table.clear(self._bound)
 	self.MarketplaceService.ProcessReceipt = nil
 	for _, player in table.clone(self._players) do
@@ -509,7 +510,7 @@ end
 	Sets whether a user owns a pass, without firing any event (as if they
 	bought it on the website).
 ]=]
-function CashierMock:SetPassOwned(player: MockPlayer | number, passId: number, owned: boolean?)
+function CashierMock.SetPassOwned(self: any, player: MockPlayer | number, passId: number, owned: boolean?)
 	local userId = if type(player) == "number" then player else player.UserId
 	self._passes[`{userId}:{passId}`] = if owned == nil then true else owned
 end
@@ -518,7 +519,7 @@ end
 	Simulates buying a pass in game: sets ownership and fires
 	`PromptGamePassPurchaseFinished`.
 ]=]
-function CashierMock:BuyPass(player: MockPlayer, passId: number)
+function CashierMock.BuyPass(self: any, player: MockPlayer, passId: number)
 	self:SetPassOwned(player, passId, true)
 	self.MarketplaceService.PromptGamePassPurchaseFinished:Fire(player, passId, true)
 end
@@ -527,7 +528,13 @@ end
 	Sets a player's subscription status and fires
 	`Players.UserSubscriptionStatusChanged`.
 ]=]
-function CashierMock:SetSubscribed(player: MockPlayer, subscriptionId: string, active: boolean, silent: boolean?)
+function CashierMock.SetSubscribed(
+	self: any,
+	player: MockPlayer,
+	subscriptionId: string,
+	active: boolean,
+	silent: boolean?
+)
 	self._subscriptions[`{player.UserId}:{subscriptionId}`] = active
 	if not silent then
 		self.Players.UserSubscriptionStatusChanged:Fire(player, subscriptionId)
@@ -539,7 +546,7 @@ end
 	Settles a transfer started with `PromptRobuxTransferAsync`: delivers the
 	sender and receiver receipts. Returns both decision names.
 ]=]
-function CashierMock:SettleTransfer(transferRequestId: string): (string, string)
+function CashierMock.SettleTransfer(self: any, transferRequestId: string): (string, string)
 	local transfer = self._transfers[transferRequestId]
 	assert(transfer, `unknown transfer {transferRequestId}`)
 	local function receipt(playerId: number, receiptType: any, suffix: string)
