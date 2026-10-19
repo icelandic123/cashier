@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      WALLY_AUTH: ${{ secrets.WALLY_AUTH }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rokit and tools
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          "$HOME/.rokit/bin/rokit" install --no-trust-check
+
+      - name: Test
+        run: lune run tests/run
+
+      - name: Build model
+        run: rojo build default.project.json -o Cashier.rbxm
+
+      - name: Create GitHub release
+        run: |
+          cp src/init.luau Cashier.luau
+          gh release create "$GITHUB_REF_NAME" Cashier.rbxm Cashier.luau \
+            --title "Cashier $GITHUB_REF_NAME" --notes-file CHANGELOG.md
+
+      - name: Publish to Wally
+        if: env.WALLY_AUTH != ''
+        run: |
+          wally login --token "$WALLY_AUTH"
+          wally publish

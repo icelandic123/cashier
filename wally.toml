@@ -1,0 +1,12 @@
+[package]
+name = "icelandic123/cashier"
+description = "Money-safe purchase handling for Roblox: developer products, game passes, subscriptions and Robux transfers, granted exactly once."
+version = "0.1.0"
+license = "MIT"
+authors = ["icelandic123"]
+realm = "server"
+registry = "https://github.com/UpliftGames/wally-index"
+exclude = ["**"]
+include = ["src", "src/**", "default.project.json", "wally.toml", "LICENSE", "README.md"]
+
+[dependencies]

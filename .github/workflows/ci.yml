@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rokit and tools
+        run: |
+          curl -sSf https://raw.githubusercontent.com/rojo-rbx/rokit/main/scripts/install.sh | bash
+          echo "$HOME/.rokit/bin" >> "$GITHUB_PATH"
+          "$HOME/.rokit/bin/rokit" install --no-trust-check
+
+      - name: Test
+        run: lune run tests/run
+
+      - name: Format
+        run: stylua --check src tests examples
+
+      - name: Lint
+        run: selene src examples
+
+      - name: Build model
+        run: rojo build default.project.json -o Cashier.rbxm
+
+      - name: Type check
+        run: |
+          gh release download --repo JohnnyMorganz/luau-lsp --pattern 'luau-lsp-linux-x86_64.zip' --dir /tmp/luau-lsp \
+            || gh release download --repo JohnnyMorganz/luau-lsp --pattern 'luau-lsp-linux.zip' --dir /tmp/luau-lsp
+          unzip -o /tmp/luau-lsp/*.zip -d /tmp/luau-lsp
+          curl -sSfL -o globalTypes.d.luau https://raw.githubusercontent.com/JohnnyMorganz/luau-lsp/main/scripts/globalTypes.d.luau
+          rojo sourcemap default.project.json -o sourcemap.json
+          /tmp/luau-lsp/luau-lsp analyze --definitions=globalTypes.d.luau --sourcemap=sourcemap.json src

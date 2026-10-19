@@ -1,0 +1,7 @@
+*.rbxm
+*.rbxl
+*.rbxlx
+sourcemap.json
+Packages/
+globalTypes.d.luau
+.luau-lsp/
