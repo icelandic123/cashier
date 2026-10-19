@@ -355,7 +355,7 @@ end
 --[=[
 	Spawns a fake character for the player and fires `CharacterAdded`.
 ]=]
-function CashierMock.SpawnCharacter(self: any, player: MockPlayer)
+function CashierMock.SpawnCharacter(_self: any, player: MockPlayer)
 	local character = { Name = player.Name, Parent = player }
 	player.Character = character
 	player.CharacterAdded:Fire(character)
